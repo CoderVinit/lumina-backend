@@ -22,6 +22,22 @@ const Order = sequelize.define('Order', {
     status: {
         type: DataTypes.ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled'),
         defaultValue: 'pending',
+    },
+    returnStatus: {
+        type: DataTypes.ENUM('none', 'requested', 'approved', 'rejected'),
+        defaultValue: 'none',
+    },
+    returnReason: {
+        type: DataTypes.ENUM('damaged', 'wrong_product', 'other'),
+        allowNull: true,
+    },
+    returnDescription: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+    },
+    returnRejectedReason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
     }
 }, {
     timestamps: true,

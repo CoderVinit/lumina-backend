@@ -13,6 +13,7 @@ import categoryRouter from './routes/categoryRoute.js';
 import paymentRouter from './routes/paymentRoute.js';
 import wishlistRouter from './routes/wishlistRoute.js';
 import reviewRouter from './routes/reviewRoute.js';
+import refundRouter from './routes/refundRoute.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,6 +39,7 @@ app.use('/api/categories', categoryRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/wishlist', wishlistRouter);
 app.use('/api/reviews', reviewRouter);
+app.use('/api/refund', refundRouter);
 
 // Sync Database and Start Server
 async function startServer() {
@@ -46,7 +48,7 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('✅ Database connection has been established successfully.');
 
-        await sequelize.sync({ alter:false });
+        await sequelize.sync({ alter: true });
         console.log('✅ All database models synced successfully.');
 
         app.listen(PORT, () => {

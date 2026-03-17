@@ -1,4 +1,4 @@
-import { User, VendorProfile, Product, Category, Order, OrderItem, CategoryRequest } from '../models/index.js';
+import { User, VendorProfile, Product, Category, Order, OrderItem, CategoryRequest, Payment } from '../models/index.js';
 
 export const GetAdminDashboardController = async (req, res) => {
     try {
@@ -337,7 +337,8 @@ export const GetAdminOrdersController = async (req, res) => {
                     model: OrderItem,
                     as: 'items',
                     include: [{ model: Product, as: 'product', attributes: ['name', 'price'] }]
-                }
+                },
+                { model: Payment, as: 'payment', attributes: ['status', 'amount'] }
             ],
             order: [['createdAt', 'DESC']],
         });
