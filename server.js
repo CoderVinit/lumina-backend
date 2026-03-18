@@ -2,6 +2,15 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { sequelize } from './models/index.js';
+import redisClient from './config/redis.js';
+import { globalLimiter } from './middleware/rateLimiter.js';
+import { orderQueue, notificationQueue, stockQueue } from './queues/index.js';
+
+// Import BullMQ workers (they start automatically on import)
+import './queues/orderWorker.js';
+import './queues/notificationWorker.js';
+import './queues/stockWorker.js';
+
 import authRouter from './routes/authRoute.js';
 import uploadRouter from './routes/uploadRoute.js';
 import userRouter from './routes/userRoute.js';
@@ -23,9 +32,29 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Global rate limiter: 100 requests/min per IP
+app.use('/api', globalLimiter);
+
 // Basic health check route
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Lumina Backend API is running' });
+app.get('/api/health', async (req, res) => {
+    const redisStatus = redisClient.isOpen ? 'connected' : 'disconnected';
+
+    const [orderCounts, notifCounts, stockCounts] = await Promise.all([
+        orderQueue.getJobCounts(),
+        notificationQueue.getJobCounts(),
+        stockQueue.getJobCounts(),
+    ]);
+
+    res.json({ 
+        status: 'ok', 
+        message: 'Lumina Backend API is running',
+        redis: redisStatus,
+        queues: {
+            orders: orderCounts,
+            notifications: notifCounts,
+            stock: stockCounts,
+        }
+    });
 });
 
 app.use('/api/auth', authRouter);
@@ -48,8 +77,11 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('✅ Database connection has been established successfully.');
 
-        await sequelize.sync({ alter: true });
-        console.log('✅ All database models synced successfully.');
+        // Use alter:true only when SYNC_ALTER=true (e.g. after model changes)
+        // Default: safe sync that only creates missing tables
+        const alter = process.env.SYNC_ALTER === 'true';
+        await sequelize.sync({ alter });
+        console.log(`✅ All database models synced successfully${alter ? ' (alter mode)' : ''}.`);
 
         app.listen(PORT, () => {
             console.log(`🚀 Server running on http://localhost:${PORT}`);

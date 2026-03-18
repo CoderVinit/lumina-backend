@@ -1,6 +1,7 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { Order, OrderItem, Cart, CartItem, Product, Payment } from '../models/index.js';
+import { orderQueue, notificationQueue, stockQueue } from '../queues/index.js';
 
 export const CreateRazorpayOrderController = async (req, res) => {
     try {
@@ -64,14 +65,6 @@ export const VerifyPaymentController = async (req, res) => {
             }));
             await OrderItem.bulkCreate(orderItems);
 
-            // Decrement product stock
-            for (const item of cart.items) {
-                await Product.update(
-                    { stock: item.product.stock - item.quantity },
-                    { where: { id: item.productId } }
-                );
-            }
-
             // Record Payment
             await Payment.create({
                 orderId: newOrder.id,
@@ -84,6 +77,29 @@ export const VerifyPaymentController = async (req, res) => {
 
             // Clean Cart
             await CartItem.destroy({ where: { cartId: cart.id } });
+
+            // Background jobs: stock update, order processing, notification
+            const stockItems = cart.items.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity,
+            }));
+
+            await stockQueue.add('decrement-stock', {
+                type: 'decrement',
+                items: stockItems,
+            });
+
+            await orderQueue.add('process-order', {
+                type: 'order-created',
+                orderId: newOrder.id,
+                userId,
+            });
+
+            await notificationQueue.add('order-confirm', {
+                type: 'order-confirmation',
+                userId,
+                data: { orderId: newOrder.id, amount },
+            });
 
             res.status(200).json({ success: true, message: 'Payment successful', orderId: newOrder.id });
         } else {
@@ -127,18 +143,9 @@ export const CreateCODOrderController = async (req, res) => {
         }));
         await OrderItem.bulkCreate(orderItems);
 
-        // Decrement product stock
-        for (const item of cart.items) {
-            await Product.update(
-                { stock: item.product.stock - item.quantity },
-                { where: { id: item.productId } }
-            );
-        }
-
         // Record Payment as COD
         await Payment.create({
             orderId: newOrder.id,
-            // Payment model requires a unique razorpayOrderId; use synthetic id for COD flows.
             razorpayOrderId: `cod_order_${newOrder.id}_${Date.now()}`,
             razorpayPaymentId: `cod_payment_${newOrder.id}`,
             amount: amount,
@@ -147,6 +154,29 @@ export const CreateCODOrderController = async (req, res) => {
 
         // Clean Cart
         await CartItem.destroy({ where: { cartId: cart.id } });
+
+        // Background jobs: stock update, order processing, notification
+        const stockItems = cart.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+        }));
+
+        await stockQueue.add('decrement-stock', {
+            type: 'decrement',
+            items: stockItems,
+        });
+
+        await orderQueue.add('process-order', {
+            type: 'order-created',
+            orderId: newOrder.id,
+            userId,
+        });
+
+        await notificationQueue.add('order-confirm', {
+            type: 'order-confirmation',
+            userId,
+            data: { orderId: newOrder.id, amount },
+        });
 
         res.status(200).json({ success: true, message: 'Order created successfully', orderId: newOrder.id });
     } catch (error) {

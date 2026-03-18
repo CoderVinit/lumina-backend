@@ -6,6 +6,7 @@ import Product from '../models/Product.js';
 import bcrypt from "bcryptjs";
 import { createToken } from "../middleware/createToken.js";
 import { OAuth2Client } from "google-auth-library";
+import { notificationQueue } from '../queues/index.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -26,6 +27,13 @@ export const RegisterController = async (req, res) => {
 
         const userData = user.toJSON();
         delete userData.passwordHash;
+
+        // Send welcome email (async, non-blocking)
+        await notificationQueue.add('welcome-email', {
+            type: 'welcome',
+            userId: user.id,
+            data: {},
+        });
 
         return res.status(201).json({ message: "User registered successfully", token, user: userData })
     } catch (error) {
