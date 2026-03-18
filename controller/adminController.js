@@ -1,4 +1,5 @@
 import { User, VendorProfile, Product, Category, Order, OrderItem, CategoryRequest, Payment } from '../models/index.js';
+import { notificationQueue } from '../queues/index.js';
 
 export const GetAdminDashboardController = async (req, res) => {
     try {
@@ -363,6 +364,25 @@ export const UpdateAdminOrderStatusController = async (req, res) => {
 
         order.status = status;
         await order.save();
+
+        // Send notification email based on status change
+        if (status === 'shipped') {
+            await notificationQueue.add('order-shipped', {
+                type: 'order-shipped',
+                userId: order.customerId,
+                data: { 
+                    orderId: order.id,
+                    trackingNumber: req.body.trackingNumber || null,
+                    deliveryDate: req.body.deliveryDate || null,
+                },
+            });
+        } else if (status === 'delivered') {
+            await notificationQueue.add('order-delivered', {
+                type: 'order-delivered',
+                userId: order.customerId,
+                data: { orderId: order.id },
+            });
+        }
 
         return res.status(200).json({ message: `Order status updated to ${status}`, order });
     } catch (error) {

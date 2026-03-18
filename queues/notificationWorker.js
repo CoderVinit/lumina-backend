@@ -3,15 +3,13 @@ import { redisConnection } from './index.js';
 import emailService from '../services/emailService.js';
 import { User } from '../models/index.js';
 
-// ─── Notification Worker ───────────────────────────────
-// Handles all async notifications (email, push, etc.)
+
 const notificationWorker = new Worker(
     'notifications',
     async (job) => {
         const { type, userId, data } = job.data;
 
         try {
-            // Get user email from database
             const user = await User.findByPk(userId);
             if (!user) {
                 console.error(`❌ User ${userId} not found for notification`);
@@ -45,9 +43,15 @@ const notificationWorker = new Worker(
                     break;
                 }
 
+                case 'order-delivered': {
+                    await emailService.sendTemplate(user.email, 'order-delivered', {
+                        orderId: data.orderId,
+                    });
+                    break;
+                }
+
                 case 'refund-processed': {
                     console.log(`💸 Refund notification for order #${data.orderId} to ${user.email}`);
-                    // TODO: Add refund email template
                     break;
                 }
 

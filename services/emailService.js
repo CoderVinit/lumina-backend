@@ -73,6 +73,21 @@ const templates = {
         `,
     }),
 
+    'order-delivered': (data) => ({
+        subject: `Order Delivered - #${data.orderId}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #28a745;">Order Delivered!</h1>
+                <p>Your order #${data.orderId} has been delivered successfully.</p>
+                <div style="background: #d4edda; padding: 20px; margin: 20px 0;">
+                    <p>We hope you enjoy your purchase!</p>
+                    <p>If you have any issues, please contact our support team.</p>
+                </div>
+                <p>Thank you for shopping with Lumina!</p>
+            </div>
+        `,
+    }),
+
     'welcome': (data) => ({
         subject: 'Welcome to Lumina!',
         html: `
