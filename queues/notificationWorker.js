@@ -72,7 +72,7 @@ const notificationWorker = new Worker(
             }
         } catch (error) {
             console.error(`❌ Notification failed for user ${userId}:`, error);
-            throw error; // Re-throw to mark job as failed
+            throw error;
         }
     },
     {
